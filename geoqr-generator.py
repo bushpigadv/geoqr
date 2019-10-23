@@ -122,15 +122,15 @@ def determine_output_location(gps_lat, gps_lon):
     if options.output:
         output_fn = os.path.basename(options.output)
         output_dir = os.path.dirname(options.output)
+    else:
+        if options.url:
+            output_fn = get_place_from_url()
     
-    # Render to the current directory if a directory was not specified
     if not output_dir:
         output_dir = os.getcwd()
-    
-    if not output_fn and options.url:
-        output_fn = get_place_from_url()
-        if not output_fn:
-            output_fn = "{0}_{1}".format(gps_lat, gps_lon)
+
+    if not output_fn:
+        output_fn = "{0}_{1}".format(gps_lat, gps_lon)
     
     # If the user did not specify a file name, append the extension for clarity
     if not options.output or not os.path.basename(options.output):
