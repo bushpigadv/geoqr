@@ -26,7 +26,7 @@ default map application on any modern smartphone to open to the encoded location
 # Output locations
 If no --output argument is provided by the user, a filename will be generated from 
 coordinates in the current directory. Users can specify either filename, output 
-directory (ends in / or \, depending on your OS), or both. See the examples below.
+directory (ends in / or \\, depending on your OS), or both. See the examples below.
 
 # Warnings
 There is no user-confirmation necessary to overwrite existing files. You should not 
@@ -36,6 +36,7 @@ a necessary system file you might be able to break something.
 # Examples
 ## With URL:
     /usr/bin/python geoqr-generator.py --url https://www.google.com/maps/place/Mount+Fuji/@35.3606247,138.7186086,15z/data=!3m1!4b1!4m5!3m4!1s0x6019629a42fdc899:0xa6a1fcc916f3a4df!8m2!3d35.3606255!4d138.7273634
+    Creates: <current_directory>/Mount+Fuji.jpg
 ## With Coordinates:
     /usr/bin/python geoqr-generator.py --coordinates 35.3606247,138.7186086
     Creates: <current_directory>/35.3606247_138.7186086.jpg
