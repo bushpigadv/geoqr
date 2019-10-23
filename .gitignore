@@ -1,0 +1,5 @@
+# Build metadata
+.vscode
+
+# Do not track output images that may have ended up in this folder
+*.jpg
