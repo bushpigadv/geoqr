@@ -36,9 +36,10 @@ parser.add_option('-u', '--url',
 parser.add_option('-o', '--output',
                   default=None,
                   dest='output',
-                  help='Define the output file path (optional) and name. If '
-                  'not supplied a name will be generated based on URL content '
-                  'or coordinate information.)'
+                  help='Define the output file path. This can be an absolute '
+                  'or relative file path, an output directory, a filename, or '
+                  'a combination thereof. The script will attempt to fill in '
+                  'the gaps. See README.md for examples.'
                   )
 (options, args) = parser.parse_args()
 
@@ -53,10 +54,10 @@ if options.coordinates and options.url:
 # Google Maps or OpenStreetMap URLs
 coord_pattern = \
     re.compile(r'[@\/](-{0,1}[0-9]{1,2}\.\d*)[,\/](-{0,1}[0-9]{1,3}\.\d*)')
-name_pattern = re.compile(r'(place|query)[=\/]([A-Za-z0-9+%]*)[#\/]')
-encoding_pattern = re.compile(r'(%[2-9]{1}[0-9A-F]{1})')
+name_pattern = re.compile(r'(place|query)[=\/]([A-Za-z0-9+%,]*)[#\/]')
+encoding_pattern = re.compile(r'(%[2-9]{1}[0-9A-F]{1})|(,)')
 
-def get_coord_from_url():
+def get_coordinates_from_url():
     """
     Using regex patterns, we will attempt to extract meaningful GPS coordinate 
     data from the URL provided. 
@@ -75,6 +76,27 @@ def get_coord_from_url():
                      options.url)
                 )
 
+def determine_coordinates():
+    """
+    Look for coordinates in either the user options or the URL that was 
+    provided.
+    """
+    if options.url:
+        gps_lat, gps_lon = get_coordinates_from_url()
+    else:
+        try:
+            gps_lat, gps_lon = options.coordinates.split(',')
+        except Exception, err:
+            sys.exit("Unable to parse provided coordinates: {0}".format(
+                str(err)
+                ))
+    
+    # Do a quick check that the coordinates look valid before continuing
+    validate_coordinates(gps_lat, gps_lon)
+
+    return gps_lat, gps_lon
+
+
 def get_place_from_url():
     """
     Using regex patterns, we will attempt to extract some sort of place name 
@@ -83,29 +105,42 @@ def get_place_from_url():
     """
     try:
         place = re.search(name_pattern, options.url)
-        return place.group(2)
+        return re.sub(encoding_pattern, '', place.group(2))
     except AttributeError:
         sys.stdout.write("No output filename was provided, and no place name "
             "could be extracted from the URL provided: {0} . Filename will be "
-            "created using coordinates instead\n.".format(options.url))
+            "created using coordinates instead.\n".format(options.url))
         return False
 
-def determine_output_filename(gps_lat, gps_lon):
+def determine_output_location(gps_lat, gps_lon):
     """
-    Manipulate either the place name or the GPS coordiantes to create a 
-    logical filename for storing the output image.
+    Determine where to place the final image output, taking --output into 
+    consideration if provided.
     """
-    if options.url:
-        file_prefix = get_place_from_url()
-    else:
-        file_prefix = False
+    output_dir, output_fn = None, None
+
+    if options.output:
+        output_fn = os.path.basename(options.output)
+        output_dir = os.path.dirname(options.output)
     
-    # If we were able to extract a place name, return but drop encoding chars
-    if file_prefix:
-        return re.sub(encoding_pattern, '', file_prefix)
-    # Else, make a name from the provided coordinates
-    else:
-        return '{0}_{1}'.format(gps_lat, gps_lon)
+    # Render to the current directory if a directory was not specified
+    if not output_dir:
+        output_dir = os.getcwd()
+    
+    if not output_fn and options.url:
+        output_fn = get_place_from_url()
+        if not output_fn:
+            output_fn = "{0}_{1}".format(gps_lat, gps_lon)
+    
+    # If the user did not specify a file name, append the extension for clarity
+    if not options.output or not os.path.basename(options.output):
+        output_fn += '.jpg'
+    
+    sys.stdout.write("Determined output location: {0}\n".format(
+        os.path.join(output_dir, output_fn)
+        ))
+
+    return output_dir, output_fn
 
 def generate_qr(output_fn, output_dir, gps_lat, gps_lon):
     """
@@ -122,11 +157,6 @@ def generate_qr(output_fn, output_dir, gps_lat, gps_lon):
     qr.make(fit=True)
     img = qr.make_image()
 
-    if not output_fn.endswith('.jpg'):
-        output_fn = output_fn + '.jpg'
-    else:
-        pass
-    
     output_path = os.path.join(output_dir, output_fn)
     
     try:
@@ -142,6 +172,11 @@ def generate_qr(output_fn, output_dir, gps_lat, gps_lon):
             "message.\n".format(str(err)))
 
 def validate_coordinates(gps_lat, gps_lon):
+    """
+    Run the coordinates through some simple validation to ensure that they 
+    look vaguely like actual GPS coordinates. This could easily be extended 
+    but for now we'll just make sure that the numbers look legit.
+    """
     try:
         float(gps_lat)
         float(gps_lon)
@@ -160,29 +195,10 @@ def validate_coordinates(gps_lat, gps_lon):
 
 def main():
     # Get coordinates either from the provided URL or user-supplied coordinates
-    if options.url:
-        gps_lat, gps_lon = get_coord_from_url()
-    else:
-        try:
-            gps_lat, gps_lon = options.coordinates.split(',')
-        except Exception, err:
-            sys.exit("Unable to parse provided coordinates: {0}".format(
-                str(err)
-                ))
-    
-    # Ensure that our coordinates look like they should
-    validate_coordinates(gps_lat, gps_lon)
+    gps_lat, gps_lon = determine_coordinates()
 
-    # Determine a filename or use the one set by the user with --output
-    if not options.output:
-        output_fn = determine_output_filename(gps_lat, gps_lon)
-        output_dir = os.getcwd()
-    else:
-        output_fn = os.path.basename(options.output)
-        output_dir = os.path.dirname(options.output)
-    sys.stdout.write("Determined output location: {0}.jpg\n".format(
-        os.path.join(output_dir, output_fn)
-        ))
+    # Determine whether output is going
+    output_dir, output_fn = determine_output_location(gps_lat, gps_lon)
     
     # Attempt to generate the QR image
     generate_qr(output_fn, output_dir, gps_lat, gps_lon)
