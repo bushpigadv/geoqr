@@ -142,7 +142,7 @@ def determine_output_location(gps_lat, gps_lon):
 
     return output_dir, output_fn
 
-def generate_qr(output_fn, output_dir, gps_lat, gps_lon):
+def generate_qr(output_dir, output_fn, gps_lat, gps_lon):
     """
     Generate the final QR image and save it to the output location.
     """
@@ -197,11 +197,11 @@ def main():
     # Get coordinates either from the provided URL or user-supplied coordinates
     gps_lat, gps_lon = determine_coordinates()
 
-    # Determine whether output is going
+    # Determine where output is going
     output_dir, output_fn = determine_output_location(gps_lat, gps_lon)
     
     # Attempt to generate the QR image
-    generate_qr(output_fn, output_dir, gps_lat, gps_lon)
+    generate_qr(output_dir, output_fn, gps_lat, gps_lon)
 
 if __name__ == '__main__':
     main()
